@@ -1,23 +1,21 @@
 import * as AWS from "aws-sdk";
 import {DocumentClient} from "aws-sdk/clients/dynamodb";
 import {Types} from 'aws-sdk/clients/s3';
-import {TodoItem} from "../models/TodoItem";
-import {TodoUpdate} from "../models/TodoUpdate";
+import {Item} from "../models/Item";
+import {ItemUpdate} from "../models/ItemUpdate";
 
-export class ToDoAccess {
+export class ItemAccess {
     constructor(
         private readonly docClient: DocumentClient = new AWS.DynamoDB.DocumentClient(),
         private readonly s3Client: Types = new AWS.S3({signatureVersion: 'v4'}),
-        private readonly todoTable = process.env.TODOS_TABLE,
+        private readonly itemsTable = process.env.ITEMS_TABLE,
         private readonly attachmentTable = process.env.ATTACHMENT_TABLE,
         private readonly s3BucketName = process.env.S3_BUCKET_NAME) {
     }
 
-    async getAllToDo(userId: string): Promise<TodoItem[]> {
-        console.log("Getting all todo");
-
+    async getAllItems(userId: string): Promise<Item[]> {
         const params = {
-            TableName: this.todoTable,
+            TableName: this.itemsTable,
             KeyConditionExpression: "#userId = :userId",
             ExpressionAttributeNames: {
                 "#userId": "userId"
@@ -28,48 +26,38 @@ export class ToDoAccess {
         };
 
         const result = await this.docClient.query(params).promise();
-        console.log(result);
         const items = result.Items;
 
-        return items as TodoItem[]
+        return items as Item[]
     }
 
-    async getToDo(todoId: string, userId: string) {
-        console.log("Getting Todo By todoId");
-
+    async getItem(itemId: string, userId: string) {
         const params = {
-            TableName: this.todoTable,
-            KeyConditionExpression: 'userId = :userId AND todoId = :todoId',
+            TableName: this.itemsTable,
+            KeyConditionExpression: 'userId = :userId AND itemId = :itemId',
             ExpressionAttributeValues: {
-                ':todoId': todoId,
+                ':itemId': itemId,
                 ':userId': userId,
             },
             ScanIndexForward: false
         };
 
         const result = await this.docClient.query(params).promise();
-        console.log('Getting Todo By todoId fetched');
         const items = result.Items;
-
         return items[0];
     }
 
-    async createToDo(todoItem: TodoItem): Promise<TodoItem> {
-        console.log("Creating new todo");
-
+    async createItem(item: Item): Promise<Item> {
         const params = {
-            TableName: this.todoTable,
-            Item: todoItem,
+            TableName: this.itemsTable,
+            Item: item,
         };
 
-        const result = await this.docClient.put(params).promise();
-        console.log(result);
-
-        return todoItem as TodoItem;
+        await this.docClient.put(params).promise();
+        return item as Item;
     };
 
     async createAttachment(item) {
-        console.log("Creating new Attachment todo");
         const attachmentItem = {
             ...item,
             attachmentUrl: `https://${this.s3BucketName}.s3.amazonaws.com/${item.attachmentId}`
@@ -81,104 +69,87 @@ export class ToDoAccess {
 
         await this.docClient.put(params).promise();
 
-        return attachmentItem as TodoItem;
+        return attachmentItem as Item;
     }
 
-    async updateToDo(todoUpdate: TodoUpdate, todoId: string, userId: string): Promise<TodoUpdate> {
-        console.log("Updating todo");
-
+    async updateItem(itemUpdate: ItemUpdate, itemId: string, userId: string): Promise<ItemUpdate> {
         const params = {
-            TableName: this.todoTable,
+            TableName: this.itemsTable,
             Key: {
                 "userId": userId,
-                "todoId": todoId
+                "itemId": itemId
             },
             UpdateExpression: "set #a = :a, #b = :b, #c = :c",
             ExpressionAttributeNames: {
                 "#a": "name",
-                "#b": "dueDate",
-                "#c": "done"
+                "#b": "date",
+                "#c": "description"
             },
             ExpressionAttributeValues: {
-                ":a": todoUpdate['name'],
-                ":b": todoUpdate['dueDate'],
-                ":c": todoUpdate['done']
+                ":a": itemUpdate['name'],
+                ":b": itemUpdate['date'],
+                ":c": itemUpdate['description']
             },
             ReturnValues: "ALL_NEW"
         };
 
         const result = await this.docClient.update(params).promise();
-        console.log(result);
         const attributes = result.Attributes;
 
-        return attributes as TodoUpdate;
+        return attributes as ItemUpdate;
     };
 
-    async updateToDoAttachment(todoId, attachmentUrl, userId): Promise<TodoItem> {
-        console.log('start update todo to add attachment');
-        const item = await this.getToDo(todoId, userId);
+    async updateItemAttachment(itemId, attachmentUrl, userId): Promise<Item> {
+        const item = await this.getItem(itemId, userId);
         const updatedItem = {
-            todoId: todoId,
+            itemId: itemId,
             userId: userId,
             createdAt: item.createdAt,
             name: item.name,
-            dueDate:item.dueDate,
-            done: item.done,
+            date:item.date,
+            description: item.description,
             attachmentUrl: attachmentUrl
         };
-        console.log('updatedItem', updatedItem);
         await this.docClient.put({
-            TableName: this.todoTable,
+            TableName: this.itemsTable,
             Item: updatedItem
         }).promise();
-        console.log("upload completed!");
-
-        return updatedItem as TodoItem;
+        return updatedItem as Item;
     };
 
-    async deleteToDo(todoId: string, userId: string): Promise<string> {
-        console.log("Deleting todo");
-
+    async deleteItem(itemId: string, userId: string): Promise<string> {
         const params = {
-            TableName: this.todoTable,
+            TableName: this.itemsTable,
             Key: {
                 "userId": userId,
-                "todoId": todoId
+                "itemId": itemId
             },
         };
 
-        const result = await this.docClient.delete(params).promise();
-        console.log(result);
-
+        await this.docClient.delete(params).promise();
         return "" as string;
     }
 
     async generateUploadUrl(attachmentId: string): Promise<string> {
-        console.log("Generating URL");
-
         const url = this.s3Client.getSignedUrl('putObject', {
             Bucket: this.s3BucketName,
             Key: attachmentId,
             Expires: 1000,
         });
-        console.log('Bucket url', url);
-
         return url as string;
     }
 
-    async getAttachment(todoId: string) {
-
+    async getAttachment(itemId: string) {
         const params = {
             TableName: this.attachmentTable,
-            KeyConditionExpression: 'todoId = :todoId',
+            KeyConditionExpression: 'itemId = :itemId',
             ExpressionAttributeValues: {
-                ':todoId': todoId
+                ':itemId': itemId
             },
             ScanIndexForward: false
         };
 
         const result = await this.docClient.query(params).promise();
-        console.log(result);
         return result.Items;
     }
 }

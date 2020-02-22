@@ -1,5 +1,5 @@
 service:
-  name: udacity-project-serverless-application
+  name: udacity-memories-wall-application
 
 plugins:
   - serverless-webpack
@@ -15,16 +15,16 @@ provider:
   region: ${opt:region, 'us-east-1'}
 
   environment:
-    PROJECT_NAME: udacity-project-serverless-application
-    TODOS_TABLE: udacity-project-serverless-application-${self:provider.stage}
-    ATTACHMENT_TABLE: udacity-project-serverless-application-attachment-${self:provider.stage}
-    S3_BUCKET_NAME: udacity-project-serverless-application-${self:provider.stage}
+    PROJECT_NAME: udacity-memories-wall-application
+    ITEMS_TABLE: udacity-memories-wall-application-${self:provider.stage}
+    ATTACHMENT_TABLE: udacity-memories-wall-application-attachment-${self:provider.stage}
+    S3_BUCKET_NAME: udacity-memories-wall-application-${self:provider.stage}
 
   iamRoleStatements:
     - Effect: Allow
       Action:
         - dynamodb:*
-      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+      Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.ITEMS_TABLE}
     - Effect: Allow
       Action:
         - dynamodb:*
@@ -32,6 +32,7 @@ provider:
     - Effect: Allow
       Action:
         - s3:*
+        - dynamodb:*
       Resource: arn:aws:s3:::${self:provider.environment.S3_BUCKET_NAME}/*
 
 custom:
@@ -39,127 +40,119 @@ custom:
     api:
       info:
         version: '1.0.0'
-        title: udacity-project-serverless-application-api
-        description: udacity-project-serverless-application-api
+        title: udacity-memories-wall-application-api
+        description: udacity-memories-wall-application-api
     models:
-      - name: CreateTodoRequest
+      - name: CreateItemRequest
         contentType: "application/json"
         schema:
           required:
             - name
-            - dueDate
+            - date
           properties:
             name:
               type: string
-            dueDate:
+            date:
               type: string
-      - name: UpdateTodoRequest
+      - name: UpdateItemRequest
         contentType: "application/json"
         schema:
           required:
             - name
-            - dueDate
-            - done
+            - date
           properties:
             name:
               type: string
-            dueDate:
+            date:
               type: string
-            done:
-              type: boolean
 
 functions:
 
   Auth:
     handler: src/lambda/auth/auth0Authorizer.handler
 
-  # DONE: Configure this function
-  GetTodos:
-    handler: src/lambda/http/getTodos.handler
+  # Configure functions
+  GetItems:
+    handler: src/lambda/http/getItems.handler
     events:
       - http:
           method: get
-          path: todos
+          path: items
           cors: true
           authorizer: Auth
-    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-get-todo-role-${self:provider.stage}
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-get-item-role-${self:provider.stage}
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:*
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.ITEMS_TABLE}
 
-  # DONE: Configure this function
-  CreateTodo:
-    handler: src/lambda/http/createTodo.handler
+  CreateItem:
+    handler: src/lambda/http/createItem.handler
     events:
       - http:
           method: post
-          path: todos
+          path: items
           cors: true
           authorizer: Auth
           documentation:
-            summary: "Create a new todo item"
-            description: "Create a new todo item"
+            summary: ""
+            description: ""
             requestModels:
-              "application/json": CreateTodoRequest
+              "application/json": CreateItemRequest
           reqValidatorName: onlyBody
-    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-create-todo-role-${self:provider.stage}
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-create-item-role-${self:provider.stage}
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:*
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.ITEMS_TABLE}
 
-
-  # DONE: Configure this function
-  UpdateTodo:
-    handler: src/lambda/http/updateTodo.handler
+  UpdateItem:
+    handler: src/lambda/http/updateItem.handler
     events:
       - http:
           method: patch
-          path: todos/{todoId}
+          path: items/{itemId}
           cors: true
           authorizer: Auth
           documentation:
-            summary: "Update a todo item"
-            description: "Update a todo item"
+            summary: ""
+            description: ""
             requestModels:
-              "application/json": UpdateTodoRequest
+              "application/json": UpdateItemRequest
           reqValidatorName: onlyBody
-    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-update-todo-role-${self:provider.stage}
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-update-item-role-${self:provider.stage}
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:*
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.ITEMS_TABLE}
 
-  # DONE: Configure this function
-  DeleteTodo:
-    handler: src/lambda/http/deleteTodo.handler
+  DeleteItem:
+    handler: src/lambda/http/deleteItem.handler
     events:
       - http:
           method: delete
-          path: todos/{todoId}
+          path: items/{itemId}
           cors: true
           authorizer: Auth
-    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-delete-todo-role-${self:provider.stage}
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-delete-item-role-${self:provider.stage}
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:*
-        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
+        Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.ITEMS_TABLE}
 
-  # DONE: Configure this function
   GenerateUploadUrl:
     handler: src/lambda/http/generateUploadUrl.handler
     events:
       - http:
           method: post
-          path: todos/{todoId}/attachment
+          path: items/{itemId}/attachment
           cors: true
           authorizer: Auth
-    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-s3-upload-role-${self:provider.stage}
+    iamRoleStatementsName: ${self:provider.environment.PROJECT_NAME}-mw-s3-upload-role-${self:provider.stage}
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -169,32 +162,32 @@ functions:
 
 resources:
   Resources:
-    # DONE: Add any necessary AWS resources
-    TodosTable:
+    # Necessary AWS resources
+    ItemsTable:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
           - AttributeName: userId
             AttributeType: S
-          - AttributeName: todoId
+          - AttributeName: itemId
             AttributeType: S
         KeySchema:
           - AttributeName: userId
             KeyType: HASH
-          - AttributeName: todoId
+          - AttributeName: itemId
             KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
-        TableName: ${self:provider.environment.TODOS_TABLE}
+        TableName: ${self:provider.environment.ITEMS_TABLE}
     AttachmentTable:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          - AttributeName: todoId
+          - AttributeName: itemId
             AttributeType: S
           - AttributeName: timestamp
             AttributeType: S
         KeySchema:
-          - AttributeName: todoId
+          - AttributeName: itemId
             KeyType: HASH
           - AttributeName: timestamp
             KeyType: RANGE

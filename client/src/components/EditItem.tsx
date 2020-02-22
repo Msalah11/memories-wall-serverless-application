@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Form, Button } from 'semantic-ui-react'
 import Auth from '../auth/Auth'
-import { getUploadUrl, uploadFile } from '../api/todos-api'
+import { getUploadUrl, uploadFile } from '../api/items-api'
 
 enum UploadState {
   NoUpload,
@@ -9,60 +9,58 @@ enum UploadState {
   UploadingFile,
 }
 
-interface EditTodoProps {
+interface EditItemProps {
   match: {
     params: {
-      todoId: string
+      itemId: string
     }
   }
   auth: Auth
 }
 
-interface EditTodoState {
+interface EditItemState {
   file: any
   uploadState: UploadState
 }
 
-export class EditTodo extends React.PureComponent<
-  EditTodoProps,
-  EditTodoState
-> {
-  state: EditTodoState = {
+export class EditItem extends React.PureComponent<
+  EditItemProps,
+  EditItemState
+  > {
+  state: EditItemState = {
     file: undefined,
     uploadState: UploadState.NoUpload
-  }
+  };
 
   handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (!files) return
+    const files = event.target.files;
+    if (!files) return;
 
     this.setState({
       file: files[0]
     })
-  }
+  };
 
   handleSubmit = async (event: React.SyntheticEvent) => {
-    event.preventDefault()
+    event.preventDefault();
 
     try {
       if (!this.state.file) {
-        alert('File should be selected')
+        alert('File should be selected');
         return
       }
 
-      this.setUploadState(UploadState.FetchingPresignedUrl)
-      const uploadUrl = await getUploadUrl(this.props.auth.getIdToken(), this.props.match.params.todoId)
+      this.setUploadState(UploadState.FetchingPresignedUrl);
+      const uploadUrl = await getUploadUrl(this.props.auth.getIdToken(), this.props.match.params.itemId);
 
-      this.setUploadState(UploadState.UploadingFile)
-      await uploadFile(uploadUrl, this.state.file)
-
-      alert('File was uploaded!')
+      this.setUploadState(UploadState.UploadingFile);
+      await uploadFile(uploadUrl, this.state.file);
     } catch (e) {
-      alert('Could not upload a file: ' + e.message)
+      alert('Could not upload a file: ' + e.message);
     } finally {
-      this.setUploadState(UploadState.NoUpload)
+      this.setUploadState(UploadState.NoUpload);
     }
-  }
+  };
 
   setUploadState(uploadState: UploadState) {
     this.setState({
